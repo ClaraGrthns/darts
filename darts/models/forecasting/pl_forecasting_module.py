@@ -29,6 +29,7 @@ class PLForecastingModule(pl.LightningModule, ABC):
         input_chunk_length: int,
         output_chunk_length: int,
         loss_fn: nn.modules.loss._Loss = nn.MSELoss(),
+        val_criterion: Optional[nn.modules.loss._Loss] = nn.MSELoss(),
         likelihood: Optional[Likelihood] = None,
         optimizer_cls: torch.optim.Optimizer = torch.optim.Adam,
         optimizer_kwargs: Optional[Dict] = None,
@@ -89,6 +90,9 @@ class PLForecastingModule(pl.LightningModule, ABC):
 
         # define the loss function
         self.criterion = loss_fn
+        #define the validation criterion
+        self.val_criterion = val_criterion if val_criterion is not None else self.criterion
+
         # by default models are deterministic (i.e. not probabilistic)
         self.likelihood = likelihood
 
@@ -132,7 +136,9 @@ class PLForecastingModule(pl.LightningModule, ABC):
         """performs the validation step"""
         output = self._produce_train_output(val_batch[:-1])
         target = val_batch[-1]
+        val_metric = self._compute_val_metric(output, target)
         loss = self._compute_loss(output, target)
+        self.log("val_metric", val_metric, batch_size=val_batch[0].shape[0], prog_bar=True)
         self.log("val_loss", loss, batch_size=val_batch[0].shape[0], prog_bar=True)
         return loss
 
@@ -229,6 +235,15 @@ class PLForecastingModule(pl.LightningModule, ABC):
             # If there's no likelihood, nr_params=1 and we need to squeeze out the
             # last dimension of model output, for properly computing the loss.
             return self.criterion(output.squeeze(dim=-1), target)
+
+    def _compute_val_metric(self, output, target):
+        # output is of shape (batch_size, n_timesteps, n_components, n_params)
+        if self.likelihood:
+            return self.likelihood.compute_loss(output, target)
+        else:
+            # If there's no likelihood, nr_params=1 and we need to squeeze out the
+            # last dimension of model output, for properly computing the loss.
+            return self.val_criterion(output.squeeze(dim=-1), target)
 
     def configure_optimizers(self):
         """configures optimizers and learning rate schedulers for for model optimization."""

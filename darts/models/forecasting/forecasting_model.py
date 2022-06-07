@@ -550,6 +550,7 @@ class ForecastingModel(ABC, metaclass=ModelMeta):
             Whether to use the whole historical forecasts or only the last point of each forecast to compute the error
         metric
             A function that takes two ``TimeSeries`` instances as inputs and returns an error value.
+            Order of arguments: 1. actual series, 2. predicted series
         reduction
             A function used to combine the individual error scores obtained when `last_points_only` is set to False.
             If explicitely set to `None`, the method will return a list of the individual error scores instead.
@@ -675,6 +676,7 @@ class ForecastingModel(ABC, metaclass=ModelMeta):
             Raises an error if ``fitted_values`` is not an attribute of `model_class`.
         metric
             A function that takes two TimeSeries instances as inputs and returns a float error value.
+            Order of arguments: 1. actual series, 2. predicted series/fitted series
         reduction
             A reduction function (mapping array to float) describing how to aggregate the errors obtained
             on the different validation series when backtesting. By default it'll compute the mean of errors.
